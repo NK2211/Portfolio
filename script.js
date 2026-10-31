@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCounters();
   initContactForm();
   initFooterYear();
+  initVisitorAuthNav();
 });
 
 /* ---------- Page Loader ---------- */
@@ -317,4 +318,41 @@ function initContactForm() {
 function initFooterYear() {
   const yearEl = document.getElementById('year');
   if (yearEl) yearEl.textContent = new Date().getFullYear();
+}
+
+
+/* ---------- Visitor authentication navbar ---------- */
+async function initVisitorAuthNav() {
+  const link = document.getElementById('authNavLink');
+  if (!link || !window.supabaseClient && typeof supabaseClient === 'undefined') return;
+  const client = window.supabaseClient || supabaseClient;
+  if (!client) return;
+
+  const { data: { session } } = await client.auth.getSession();
+  renderAuthLink(session);
+
+  client.auth.onAuthStateChange((_event, nextSession) => renderAuthLink(nextSession));
+
+  function renderAuthLink(session) {
+    if (session?.user) {
+      const displayName = session.user.user_metadata?.full_name ||
+        session.user.email?.split('@')[0] || 'Account';
+      link.textContent = `Hi, ${displayName}`;
+      link.href = 'auth.html';
+      link.title = 'Open account options';
+      link.onclick = async (event) => {
+        event.preventDefault();
+        const shouldSignOut = window.confirm('Sign out of your visitor account?');
+        if (!shouldSignOut) return;
+        const { error } = await client.auth.signOut();
+        if (error) window.alert(error.message);
+        else window.location.reload();
+      };
+    } else {
+      link.textContent = 'Sign in';
+      link.href = 'auth.html';
+      link.title = 'Sign in or create a visitor account';
+      link.onclick = null;
+    }
+  }
 }
